@@ -18,25 +18,82 @@ Note there is another Spring PetClinic example that uses React: [spring-petclini
 If you like to help and contribute (there's lot root for improvements! I've collected a list of ideas [here: TODO.md](TODO.md)) you're more than welcome! Please open an issue or contact me on [Twitter](https://twitter.com/nilshartmann) so we can discuss together!
 
 
+## Prerequisites
+
+The following items should be installed in your system:
+* **Java 17 or higher** - Required for Spring Boot 3.x
+* **Node.js** (v18 or higher recommended)
+* **npm** (comes with Node.js)
+
 ## Install and run
+
+### Quick Reference
+
+| Application | URL |
+|-------------|-----|
+| Frontend (React) | http://localhost:3000/ |
+| Backend API | http://localhost:9966/petclinic/api/ |
+| Swagger API Docs | http://localhost:9966/petclinic/swagger-ui.html |
+
+### Step 1: Start the Backend Server
 
 Note: Spring Boot Server App must be running before starting the client!
 
-To start the server, launch a Terminal and run from the project's root folder (`spring-petclinic`):
-```
+Launch a Terminal and run from the project's root folder:
+```bash
+# On Linux/Mac:
 ./mvnw spring-boot:run
+
+# On Windows (PowerShell):
+.\mvnw.cmd spring-boot:run
 ```
 
-When the server is running you can try to access the API for example to query all known pet types:
-```
-curl http://localhost:8080/api/pettypes
+When the server is running you can verify the API is accessible:
+```bash
+# On Linux/Mac:
+curl http://localhost:9966/petclinic/api/pettypes
 ```
 
-After starting the server you can install and run the client from the `client` folder:
+You can also access the Swagger API documentation at:
+```
+http://localhost:9966/petclinic/swagger-ui.html
+```
 
-1. `npm install` (installs the node modules and the TypeScript definition files)
-2. `PORT=4444 npm start` 
-3. Open `http://localhost:4444`
+### Step 2: Start the Frontend Client
+
+Open a **new terminal** and navigate to the `client` folder:
+
+```bash
+cd client
+```
+
+Install dependencies:
+```bash
+npm install
+```
+
+Start the development server:
+```bash
+# On Linux/Mac:
+PORT=3000 npm start
+
+# On Windows (PowerShell):
+$env:PORT=3000; npm start
+
+# On Windows (CMD):
+set PORT=3000 && npm start
+```
+
+Open http://localhost:3000 in your browser.
+
+### Backend Configuration
+
+| Setting | Value |
+|---------|-------|
+| Server Port | 9966 |
+| Context Path | /petclinic/ |
+| Database | HSQLDB (in-memory, auto-populated) |
+| Security | Disabled by default |
 
 (Why not use the same server for backend and frontend? Because Webpack does a great job for serving JavaScript-based SPAs and I think it's not too uncommon to run this kind of apps using two dedicated server, one for backend, one for frontend)
 
@@ -61,7 +118,7 @@ If you you want to follow me on twitter, my handle is [@nilshartmann](https://tw
 	./mvnw spring-boot:run
 ```
 
-You can then access petclinic here: http://localhost:8080/
+You can then access petclinic here: http://localhost:9966/petclinic/
 
 ## In case you find a bug/suggested improvement for Spring Petclinic
 Our issue tracker is available here: https://github.com/spring-projects/spring-petclinic/issues
@@ -83,12 +140,11 @@ docker run -e MYSQL_ROOT_PASSWORD=petclinic -e MYSQL_DATABASE=petclinic -p 3306:
 
 ### prerequisites
 The following items should be installed in your system:
-* Maven 3 (http://www.sonatype.com/books/mvnref-book/reference/installation.html)
+* Java 17 or higher (required for Spring Boot 3.x)
+* Maven 3 (optional - Maven Wrapper is included: `mvnw` / `mvnw.cmd`)
+* Node.js v18+ and npm (for the React frontend)
 * git command line tool (https://help.github.com/articles/set-up-git)
-* Eclipse with the m2e plugin (m2e is installed by default when using the STS (http://www.springsource.org/sts) distribution of Eclipse)
-
-Note: when m2e is available, there is an m2 icon in Help -> About dialog.
-If m2e is not there, just follow the install process here: http://eclipse.org/m2e/download/
+* Eclipse/IntelliJ with Maven support (optional, for IDE development)
 
 
 ### Steps:
