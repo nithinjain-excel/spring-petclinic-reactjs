@@ -2,9 +2,9 @@
 
 | Version | Date | Author | Status |
 |---------|------|--------|--------|
-| 1.1 | 2026-01-16 | AI Assistant | Draft |
+| 1.2 | 2026-01-17 | AI Assistant | Draft |
 
-**Changes:** v1.0 - Initial documentation | v1.1 - Updated authentication section
+**Changes:** v1.0 - Initial documentation | v1.1 - Updated authentication section | v1.2 - Added Database Migration Strategy section
 
 ## Overview
 
@@ -85,7 +85,7 @@ The database schema consists of the following tables:
 | `users` | Authentication users | One-to-Many with `roles` |
 | `roles` | User roles for authorization | Many-to-One with `users` |
 
-### Migration Scripts
+### SQL Scripts Location
 
 Located in `src/main/resources/db/`:
 
@@ -103,6 +103,116 @@ db/
     ├── populateDB.sql
     └── petclinic_db_setup_postgresql.txt
 ```
+
+### Database Migration Strategy
+
+#### Current State: NO MIGRATION TOOL
+
+> **⚠️ IMPORTANT**: This project does **NOT** use a database migration tool like Flyway or Liquibase.
+
+The application relies on Spring Boot's SQL initialization feature which runs scripts on every startup.
+
+#### Current Approach
+
+```properties
+# Location: src/main/resources/application-hsqldb.properties
+
+spring.sql.init.schema-locations=classpath*:db/hsqldb/initDB.sql
+spring.sql.init.data-locations=classpath*:db/hsqldb/populateDB.sql
+spring.jpa.hibernate.ddl-auto=none
+```
+
+| Aspect | Current Implementation |
+|--------|----------------------|
+| **Schema Creation** | `initDB.sql` - runs on every startup |
+| **Data Seeding** | `populateDB.sql` - runs on every startup |
+| **Version Control** | ❌ None - no migration versioning |
+| **Rollback Support** | ❌ None - manual rollback only |
+| **Migration History** | ❌ None - no tracking table |
+| **Migration Tool** | ❌ None - no Flyway/Liquibase |
+
+#### How It Works
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    APPLICATION STARTUP                          │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  1. Spring Boot starts                                          │
+│           │                                                     │
+│           ▼                                                     │
+│  2. Check spring.sql.init.* properties                         │
+│           │                                                     │
+│           ▼                                                     │
+│  3. Execute initDB.sql (CREATE TABLE statements)               │
+│           │                                                     │
+│           ▼                                                     │
+│  4. Execute populateDB.sql (INSERT statements)                 │
+│           │                                                     │
+│           ▼                                                     │
+│  5. Application ready                                           │
+│                                                                 │
+│  ⚠️ On restart with HSQLDB: ALL DATA IS LOST (in-memory)       │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+#### Risks and Limitations
+
+| Risk | Impact | Description |
+|------|--------|-------------|
+| **Data Loss** | 🔴 High | In-memory HSQLDB loses all data on restart |
+| **No Version Control** | 🔴 High | Cannot track schema changes over time |
+| **Manual Migration** | 🟡 Medium | Schema changes require manual SQL updates to all DB scripts |
+| **No Rollback** | 🔴 High | Cannot automatically rollback failed changes |
+| **Environment Sync** | 🟡 Medium | Hard to keep dev/test/prod schemas in sync |
+| **No Audit Trail** | 🟡 Medium | No record of when/what migrations were applied |
+
+#### Domain-Specific Migration Considerations
+
+| Domain | Tables | Key Concerns |
+|--------|--------|--------------|
+| **Authentication** | `users`, `roles` | Security-sensitive, credential migration |
+| **Owners** | `owners` | Customer data, potential email column additions |
+| **Pets** | `pets`, `types` | Reference data (pet types), FK constraints |
+| **Vets** | `vets`, `specialties`, `vet_specialties` | Many-to-many junction table complexity |
+| **Visits** | `visits` | Historical transactional data, audit requirements |
+
+#### Future Recommendations
+
+For production readiness, implement a proper migration strategy:
+
+| Recommendation | Tool Options | Benefit |
+|----------------|--------------|---------|
+| **Versioned Migrations** | Flyway, Liquibase | Track schema changes with version numbers |
+| **Baseline Migration** | `V1__baseline.sql` | Create initial migration from current schema |
+| **Incremental Changes** | `V2__add_column.sql` | Each change in separate versioned file |
+| **Rollback Scripts** | `U1__undo_baseline.sql` | Ability to revert changes |
+| **Migration History** | `flyway_schema_history` | Track what's been applied |
+| **Checksum Validation** | Built-in | Detect unauthorized changes |
+
+#### Example Migration Structure (Recommended)
+
+```
+src/main/resources/db/migration/
+├── V1__baseline_schema.sql           # Initial schema from initDB.sql
+├── V1.1__baseline_data.sql           # Seed data (optional)
+├── V2__add_email_to_owners.sql       # Add email column
+├── V3__add_audit_columns.sql         # Add created_at, updated_at
+├── V4__add_vet_license_number.sql    # New vet field
+└── R__reference_data.sql             # Repeatable migration for lookup data
+```
+
+#### Migration Tool Comparison
+
+| Feature | Flyway | Liquibase |
+|---------|--------|-----------|
+| **Format** | SQL files | XML/YAML/JSON/SQL |
+| **Learning Curve** | Low | Medium |
+| **Spring Boot Integration** | Excellent | Excellent |
+| **Rollback** | Manual (undo scripts) | Automatic |
+| **Diff Generation** | No | Yes |
+| **Recommendation** | ✅ Simpler for SQL-first | Good for complex scenarios |
 
 ### Database Connection
 
