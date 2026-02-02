@@ -54,6 +54,15 @@ public class JdbcUserRepositoryImpl implements UserRepository {
             params, BeanPropertyRowMapper.newInstance(User.class));
     }
 
+    @Override
+    public User findByUsername(String username) throws DataAccessException {
+        try {
+            return getByUsername(username);
+        } catch (EmptyResultDataAccessException e) {
+            return null;
+        }
+    }
+
     private void updateUserRoles(User user) {
         Map<String, Object> params = new HashMap<>();
         params.put("username", user.getUsername());

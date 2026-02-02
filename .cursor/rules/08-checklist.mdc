@@ -1,0 +1,214 @@
+# New Feature Checklist with TDD Approach
+# Reference when adding new domain entities or features
+# Each phase follows: Write Test (RED) → Implement (GREEN) → Manual Test → WAIT
+
+---
+alwaysApply: true
+---
+
+## TDD-Based Feature Development
+
+When adding a new feature, follow this TDD-integrated checklist:
+
+### Phase 1: Database Setup
+| Step | Action |
+|------|--------|
+| 1.1 | Add `CREATE TABLE` to `db/hsqldb/initDB.sql` |
+| 1.2 | Add `CREATE TABLE` to `db/mysql/initDB.sql` |
+| 1.3 | Add `CREATE TABLE` to `db/postgresql/initDB.sql` |
+| 1.4 | Add foreign key constraints |
+| 1.5 | Add indexes on FK columns and frequently queried fields |
+| 1.6 | Add `INSERT` statements to all three `populateDB.sql` files |
+
+**After Phase 1:** Notify user → WAIT for confirmation
+
+---
+
+### Phase 2: Domain Model (Entity)
+
+**TDD Steps:**
+| Step | Action | Result |
+|------|--------|--------|
+| 2.1 | Write unit test for entity validation | |
+| 2.2 | Run `.\mvnw.cmd test` | ❌ RED |
+| 2.3 | Create entity class in `model/` package | |
+| 2.4 | Extend base class (`BaseEntity`, `NamedEntity`, or `Person`) | |
+| 2.5 | Add `@Entity` and `@Table` annotations | |
+| 2.6 | Add column mappings with `@Column` | |
+| 2.7 | Add validation annotations (`@NotEmpty`, `@NotNull`, etc.) | |
+| 2.8 | Add relationship annotations (`@ManyToOne`, `@OneToMany`) | |
+| 2.9 | Run `.\mvnw.cmd test` | ✅ GREEN |
+
+**After Phase 2:** Notify user → WAIT for confirmation
+
+---
+
+### Phase 3: Repository Layer
+
+**TDD Steps:**
+| Step | Action | Result |
+|------|--------|--------|
+| 3.1 | Write unit test for repository methods | |
+| 3.2 | Run `.\mvnw.cmd test` | ❌ RED |
+| 3.3 | Create repository interface in `repository/` | |
+| 3.4 | Define CRUD methods with `throws DataAccessException` | |
+| 3.5 | Create Spring Data JPA implementation in `repository/springdatajpa/` | |
+| 3.6 | Add `@Profile("spring-data-jpa")` annotation | |
+| 3.7 | Use `LEFT JOIN FETCH` in custom queries | |
+| 3.8 | Run `.\mvnw.cmd test` | ✅ GREEN |
+
+**After Phase 3:** Notify user → WAIT for confirmation
+
+---
+
+### Phase 4: Service Layer
+
+**TDD Steps:**
+| Step | Action | Result |
+|------|--------|--------|
+| 4.1 | Write unit test for service methods | |
+| 4.2 | Run `.\mvnw.cmd test` | ❌ RED |
+| 4.3 | Add methods to `ClinicService` interface | |
+| 4.4 | Implement methods in `ClinicServiceImpl` | |
+| 4.5 | Add `@Transactional(readOnly = true)` for read operations | |
+| 4.6 | Add `@Transactional` for write operations | |
+| 4.7 | Handle not-found cases (return null) | |
+| 4.8 | Run `.\mvnw.cmd test` | ✅ GREEN |
+
+**After Phase 4:** Notify user → WAIT for confirmation
+
+---
+
+### Phase 5: REST API Layer
+
+**TDD Steps:**
+| Step | Action | Result |
+|------|--------|--------|
+| 5.1 | Write unit test for controller endpoints | |
+| 5.2 | Run `.\mvnw.cmd test` | ❌ RED |
+| 5.3 | Add endpoint definitions to `openapi.yml` | |
+| 5.4 | Add schema definitions to `openapi.yml` | |
+| 5.5 | Run `.\mvnw.cmd compile` to generate DTOs | |
+| 5.6 | Create mapper interface in `mapper/` | |
+| 5.7 | Create controller implementing generated API interface | |
+| 5.8 | Add `@PreAuthorize` annotations for security | |
+| 5.9 | Run `.\mvnw.cmd test` | ✅ GREEN |
+
+**After Phase 5:** Notify user → WAIT for confirmation
+
+---
+
+### Phase 6: Security (If New Role Needed)
+
+**TDD Steps:**
+| Step | Action | Result |
+|------|--------|--------|
+| 6.1 | Write unit test for security/authorization | |
+| 6.2 | Run `.\mvnw.cmd test` | ❌ RED |
+| 6.3 | Add role constant to `security/Roles.java` | |
+| 6.4 | Configure role in security configuration | |
+| 6.5 | Run `.\mvnw.cmd test` | ✅ GREEN |
+
+**After Phase 6:** Notify user → WAIT for confirmation
+
+---
+
+### Phase 7: Documentation
+
+| Step | Action |
+|------|--------|
+| 7.1 | Update relevant baseline PRD in `docs/baseline/` |
+| 7.2 | Update `ARCHITECTURE.md` if architecture changes |
+| 7.3 | Update README.md if needed |
+
+**After Phase 7:** Notify user → Feature Complete
+
+---
+
+## Quick Reference: File Locations
+
+| Component | Location |
+|-----------|----------|
+| SQL Schema | `src/main/resources/db/{database}/initDB.sql` |
+| SQL Data | `src/main/resources/db/{database}/populateDB.sql` |
+| Entity | `src/main/java/.../model/EntityName.java` |
+| Repository Interface | `src/main/java/.../repository/EntityRepository.java` |
+| Spring Data Repo | `src/main/java/.../repository/springdatajpa/SpringDataEntityRepository.java` |
+| Service Interface | `src/main/java/.../service/ClinicService.java` |
+| Service Impl | `src/main/java/.../service/ClinicServiceImpl.java` |
+| OpenAPI Spec | `src/main/resources/openapi.yml` |
+| Mapper | `src/main/java/.../mapper/EntityMapper.java` |
+| Controller | `src/main/java/.../rest/controller/EntityRestController.java` |
+| Roles | `src/main/java/.../security/Roles.java` |
+| Tests | `src/test/java/.../rest/controller/EntityRestControllerTests.java` |
+
+---
+
+## Common Mistakes Reference
+
+### Database Mistakes
+| ❌ Mistake | ✅ Fix |
+|-----------|--------|
+| Only updating hsqldb scripts | Update all three database scripts |
+| Using `AUTO_INCREMENT` in HSQLDB | Use `INTEGER IDENTITY` |
+| Missing indexes on FK columns | Add `CREATE INDEX` for all FKs |
+| Wrong table order in initDB.sql | Parents before children |
+
+### Entity Mistakes
+| ❌ Mistake | ✅ Fix |
+|-----------|--------|
+| Using `List<>` for @OneToMany | Use `Set<>` |
+| Missing `mappedBy` | Always specify on inverse side |
+| Exposing internal collections | Return unmodifiable views |
+| Missing validation | Add `@NotEmpty`, `@NotNull`, etc. |
+
+### Repository Mistakes
+| ❌ Mistake | ✅ Fix |
+|-----------|--------|
+| Missing `@Profile` annotation | Add `@Profile("spring-data-jpa")` |
+| N+1 query problems | Use `LEFT JOIN FETCH` |
+| Positional parameters | Use named parameters with `@Param` |
+
+### Service Mistakes
+| ❌ Mistake | ✅ Fix |
+|-----------|--------|
+| Field injection | Use constructor injection |
+| Missing `@Transactional` | Add to all methods |
+| Using `@Transactional` for reads | Use `readOnly = true` |
+| Throwing exception for not found | Return null |
+
+### Controller Mistakes
+| ❌ Mistake | ✅ Fix |
+|-----------|--------|
+| Injecting repository directly | Use ClinicService |
+| Returning entity directly | Use mapper to DTO |
+| Missing `@PreAuthorize` | Add security annotation |
+| Wrong HTTP status codes | Follow REST conventions |
+
+### TDD Mistakes
+| ❌ Mistake | ✅ Fix |
+|-----------|--------|
+| Writing code before tests | Always write test FIRST |
+| Skipping RED verification | Verify test FAILS before implementing |
+| Proceeding without user approval | WAIT after each phase |
+
+---
+
+## Useful Commands
+
+```bash
+# Run specific test
+.\mvnw.cmd test -Dtest=TestClassName
+
+# Run all tests
+.\mvnw.cmd test
+
+# Build project
+.\mvnw.cmd clean install
+
+# Run application
+.\mvnw.cmd spring-boot:run
+
+# Generate DTOs from OpenAPI
+.\mvnw.cmd compile
+```

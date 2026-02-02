@@ -13,7 +13,7 @@ import EditPetPage from './components/pets/EditPetPage';
 import VisitsPage from './components/visits/VisitsPage';
 import VetsPage from './components/vets/VetsPage';
 import ErrorPage from './components/ErrorPage';
-
+import LoginPage from './components/auth/LoginPage';
 
 import NotFoundPage from './components/NotFoundPage';
 
@@ -22,6 +22,7 @@ import NotFoundPage from './components/NotFoundPage';
 export default () => (
   <Route component={App}>
     <Route path='/' component={WelcomePage} />
+    <Route path='/login' component={LoginPage} />
     <Route path='/owners/list' component={FindOwnersPage} />
     <Route path='/owners/new' component={NewOwnerPage} />
     <Route path='/owners/:ownerId/edit' component={EditOwnerPage} />

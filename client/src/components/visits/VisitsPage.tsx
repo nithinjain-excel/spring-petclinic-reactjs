@@ -2,7 +2,7 @@ import * as React from 'react';
 
 import { IOwner, IPet, IPetType, IVisit, IError, IRouterContext } from '../../types';
 
-import { url, submitForm } from '../../util';
+import { url, submitForm, fetchWithAuth } from '../../util';
 import { NotEmpty } from '../form/Constraints';
 
 import DateInput from '../form/DateInput';
@@ -43,7 +43,7 @@ export default class VisitsPage extends React.Component<IVisitsPageProps, IVisit
     const { params } = this.props;
 
     if (params && params.ownerId) {
-      fetch(url(`/api/owner/${params.ownerId}`))
+      fetchWithAuth(url(`/api/owner/${params.ownerId}`))
         .then(response => response.json())
         .then(owner => this.setState(
           {

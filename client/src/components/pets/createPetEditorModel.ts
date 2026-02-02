@@ -1,14 +1,14 @@
 import { IPetType, ISelectOption } from '../../types';
-import { url, submitForm } from '../../util';
+import { url, submitForm, fetchWithAuth } from '../../util';
 
 const toSelectOptions = (pettypes: IPetType[]): ISelectOption[] => pettypes.map(pettype => ({ value: pettype.id, name: pettype.name }));
 
 export default (ownerId: string, petLoaderPromise: Promise<any>): Promise<any> => {
   return Promise.all(
-    [fetch(url('/api/pettypes'))
+    [fetchWithAuth(url('/api/pettypes'))
       .then(response => response.json())
       .then(toSelectOptions),
-    fetch(url('/api/owner/' + ownerId))
+    fetchWithAuth(url('/api/owner/' + ownerId))
       .then(response => response.json()),
       petLoaderPromise,
     ]

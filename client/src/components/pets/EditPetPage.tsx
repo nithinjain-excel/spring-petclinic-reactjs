@@ -2,7 +2,7 @@ import * as React from 'react';
 
 import { IOwner, IEditablePet, ISelectOption } from '../../types';
 
-import { url } from '../../util';
+import { url, fetchWithAuth } from '../../util';
 
 import LoadingPanel from './LoadingPanel';
 import PetEditor from './PetEditor';
@@ -29,7 +29,7 @@ export default class EditPetPage extends React.Component<IEditPetPageProps, IEdi
 
     const fetchUrl = url(`/api/owners/${params.ownerId}/pets/${params.petId}`);
 
-    const loadPetPromise = fetch(fetchUrl).then(response => response.json());
+    const loadPetPromise = fetchWithAuth(fetchUrl).then(response => response.json());
 
     createPetEditorModel(this.props.params.ownerId, loadPetPromise)
       .then(model => this.setState(model));

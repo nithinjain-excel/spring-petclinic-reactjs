@@ -1,0 +1,261 @@
+# Repository / Data Access Layer Rules
+# Applies to: Repository interfaces, Spring Data JPA, custom queries
+
+---
+
+## Package Structure
+
+```
+src/main/java/org/springframework/samples/petclinic/repository/
+├── OwnerRepository.java              # Interface
+├── PetRepository.java
+├── VetRepository.java
+├── VisitRepository.java
+├── PetTypeRepository.java
+├── SpecialtyRepository.java
+├── UserRepository.java
+├── springdatajpa/                    # Spring Data JPA (DEFAULT)
+│   ├── SpringDataOwnerRepository.java
+│   └── ...
+├── jpa/                              # JPA/EntityManager
+│   └── JpaOwnerRepositoryImpl.java
+└── jdbc/                             # JDBC
+    └── JdbcOwnerRepositoryImpl.java
+```
+
+---
+
+## Repository Interface Pattern
+
+```java
+package org.springframework.samples.petclinic.repository;
+
+import org.springframework.dao.DataAccessException;
+import org.springframework.samples.petclinic.model.Entity;
+import java.util.Collection;
+
+public interface EntityRepository {
+
+    /**
+     * Find entity by ID.
+     * @param id the id to search for
+     * @return the Entity if found
+     * @throws DataAccessException if not found
+     */
+    Entity findById(int id) throws DataAccessException;
+
+    /**
+     * Retrieve all entities.
+     * @return Collection of entities (or empty collection if none found)
+     */
+    Collection<Entity> findAll() throws DataAccessException;
+
+    /**
+     * Save (insert or update) entity.
+     * @param entity the entity to save
+     */
+    void save(Entity entity) throws DataAccessException;
+
+    /**
+     * Delete entity.
+     * @param entity the entity to delete
+     */
+    void delete(Entity entity) throws DataAccessException;
+
+    /**
+     * Find entities by field value.
+     * @param value the value to search for
+     * @return Collection of matching entities
+     */
+    Collection<Entity> findByFieldName(String value) throws DataAccessException;
+}
+```
+
+---
+
+## Spring Data JPA Implementation (Default)
+
+```java
+package org.springframework.samples.petclinic.repository.springdatajpa;
+
+import org.springframework.context.annotation.Profile;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.Repository;
+import org.springframework.data.repository.query.Param;
+import org.springframework.samples.petclinic.model.Entity;
+import org.springframework.samples.petclinic.repository.EntityRepository;
+
+import java.util.Collection;
+
+@Profile("spring-data-jpa")  // REQUIRED - activates only with this profile
+public interface SpringDataEntityRepository extends EntityRepository, Repository<Entity, Integer> {
+
+    @Override
+    @Query("SELECT DISTINCT e FROM Entity e LEFT JOIN FETCH e.children WHERE e.id = :id")
+    Entity findById(@Param("id") int id);
+
+    @Override
+    @Query("SELECT e FROM Entity e WHERE e.fieldName LIKE :value%")
+    Collection<Entity> findByFieldName(@Param("value") String value);
+    
+    // findAll(), save(), delete() are auto-implemented by Spring Data
+}
+```
+
+---
+
+## CRITICAL RULES
+
+### Rule 1: Always Use @Profile Annotation
+```java
+@Profile("spring-data-jpa")  // Required for Spring Data implementations
+public interface SpringDataEntityRepository extends EntityRepository, Repository<Entity, Integer> {
+```
+
+### Rule 2: Use LEFT JOIN FETCH for Relationships
+Avoid N+1 query problems:
+```java
+// ❌ Bad - causes N+1 queries
+@Query("SELECT o FROM Owner o WHERE o.id = :id")
+Owner findById(@Param("id") int id);
+
+// ✅ Good - eager fetches in one query
+@Query("SELECT o FROM Owner o LEFT JOIN FETCH o.pets WHERE o.id = :id")
+Owner findById(@Param("id") int id);
+```
+
+### Rule 3: Use Named Parameters
+```java
+// ❌ Bad - positional parameters
+@Query("SELECT o FROM Owner o WHERE o.lastName LIKE ?1%")
+Collection<Owner> findByLastName(String lastName);
+
+// ✅ Good - named parameters with @Param
+@Query("SELECT o FROM Owner o WHERE o.lastName LIKE :lastName%")
+Collection<Owner> findByLastName(@Param("lastName") String lastName);
+```
+
+### Rule 4: Return Collection<> Not List<>
+```java
+// ✅ Flexible return type
+Collection<Owner> findAll() throws DataAccessException;
+Collection<Owner> findByLastName(String lastName) throws DataAccessException;
+```
+
+### Rule 5: Throw DataAccessException
+```java
+Entity findById(int id) throws DataAccessException;
+void save(Entity entity) throws DataAccessException;
+```
+
+---
+
+## Common Query Patterns
+
+### Partial Match (Starts With)
+```java
+@Query("SELECT o FROM Owner o WHERE o.lastName LIKE :lastName%")
+Collection<Owner> findByLastName(@Param("lastName") String lastName);
+```
+
+### Eager Fetch Children
+```java
+@Query("SELECT DISTINCT o FROM Owner o LEFT JOIN FETCH o.pets WHERE o.lastName LIKE :lastName%")
+Collection<Owner> findByLastName(@Param("lastName") String lastName);
+```
+
+### Find by Foreign Key
+```java
+@Query("SELECT v FROM Visit v WHERE v.pet.id = :petId")
+List<Visit> findByPetId(@Param("petId") Integer petId);
+```
+
+### Find by Multiple Values
+```java
+@Query("SELECT s FROM Specialty s WHERE s.name IN :names")
+List<Specialty> findSpecialtiesByNameIn(@Param("names") Set<String> names);
+```
+
+---
+
+## Profile Configuration
+
+```properties
+# application.properties
+
+# Use Spring Data JPA (default)
+spring.profiles.active=hsqldb,spring-data-jpa
+
+# Use JPA/EntityManager
+# spring.profiles.active=hsqldb,jpa
+
+# Use JDBC
+# spring.profiles.active=hsqldb,jdbc
+```
+
+---
+
+## Creating a New Repository
+
+### Step 1: Create Interface
+```java
+// repository/AppointmentRepository.java
+package org.springframework.samples.petclinic.repository;
+
+import org.springframework.dao.DataAccessException;
+import org.springframework.samples.petclinic.model.Appointment;
+import java.util.Collection;
+
+public interface AppointmentRepository {
+    Appointment findById(int id) throws DataAccessException;
+    Collection<Appointment> findAll() throws DataAccessException;
+    Collection<Appointment> findByPetId(int petId) throws DataAccessException;
+    Collection<Appointment> findByVetId(int vetId) throws DataAccessException;
+    void save(Appointment appointment) throws DataAccessException;
+    void delete(Appointment appointment) throws DataAccessException;
+}
+```
+
+### Step 2: Create Spring Data JPA Implementation
+```java
+// repository/springdatajpa/SpringDataAppointmentRepository.java
+package org.springframework.samples.petclinic.repository.springdatajpa;
+
+import org.springframework.context.annotation.Profile;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.Repository;
+import org.springframework.data.repository.query.Param;
+import org.springframework.samples.petclinic.model.Appointment;
+import org.springframework.samples.petclinic.repository.AppointmentRepository;
+
+import java.util.Collection;
+
+@Profile("spring-data-jpa")
+public interface SpringDataAppointmentRepository 
+        extends AppointmentRepository, Repository<Appointment, Integer> {
+
+    @Override
+    @Query("SELECT a FROM Appointment a LEFT JOIN FETCH a.pet LEFT JOIN FETCH a.vet WHERE a.id = :id")
+    Appointment findById(@Param("id") int id);
+
+    @Override
+    @Query("SELECT a FROM Appointment a WHERE a.pet.id = :petId")
+    Collection<Appointment> findByPetId(@Param("petId") int petId);
+
+    @Override
+    @Query("SELECT a FROM Appointment a WHERE a.vet.id = :vetId")
+    Collection<Appointment> findByVetId(@Param("vetId") int vetId);
+}
+```
+
+---
+
+## Common Mistakes to Avoid
+
+| ❌ Don't | ✅ Do |
+|----------|------|
+| Forget `@Profile("spring-data-jpa")` | Always add profile annotation |
+| Cause N+1 queries | Use `LEFT JOIN FETCH` |
+| Use positional parameters | Use named parameters with `@Param` |
+| Return `List<>` | Return `Collection<>` for flexibility |
+| Forget `throws DataAccessException` | Add to all methods |

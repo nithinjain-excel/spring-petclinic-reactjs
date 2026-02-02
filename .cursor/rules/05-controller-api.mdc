@@ -1,0 +1,307 @@
+# Controller & REST API Rules
+# Applies to: REST controllers, OpenAPI, DTOs, MapStruct mappers
+
+---
+
+## Package Structure
+
+```
+src/main/java/org/springframework/samples/petclinic/
+├── rest/
+│   ├── controller/
+│   │   ├── OwnerRestController.java
+│   │   ├── PetRestController.java
+│   │   └── ...
+│   └── advice/
+│       └── ExceptionControllerAdvice.java
+├── mapper/
+│   ├── OwnerMapper.java
+│   ├── PetMapper.java
+│   └── ...
+└── (generated)
+    └── rest/
+        ├── api/           # Generated API interfaces
+        │   └── OwnersApi.java
+        └── dto/           # Generated DTOs
+            ├── OwnerDto.java
+            └── OwnerFieldsDto.java
+```
+
+---
+
+## OpenAPI-First Development
+
+### API Specification
+- Location: `src/main/resources/openapi.yml`
+- DTOs are auto-generated during `mvn compile`
+- Controllers implement generated `*Api` interfaces
+
+### Generated Packages
+```
+org.springframework.samples.petclinic.rest.api    # API interfaces
+org.springframework.samples.petclinic.rest.dto    # DTO classes with Dto suffix
+```
+
+---
+
+## Controller Template
+
+```java
+package org.springframework.samples.petclinic.rest.controller;
+
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.samples.petclinic.mapper.EntityMapper;
+import org.springframework.samples.petclinic.model.Entity;
+import org.springframework.samples.petclinic.rest.api.EntitiesApi;
+import org.springframework.samples.petclinic.rest.dto.EntityDto;
+import org.springframework.samples.petclinic.rest.dto.EntityFieldsDto;
+import org.springframework.samples.petclinic.service.ClinicService;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.util.UriComponentsBuilder;
+
+import jakarta.transaction.Transactional;
+import java.util.Collection;
+import java.util.List;
+
+@RestController
+@CrossOrigin(exposedHeaders = "errors, content-type")
+@RequestMapping("/api")
+public class EntityRestController implements EntitiesApi {
+
+    private final ClinicService clinicService;
+    private final EntityMapper entityMapper;
+
+    public EntityRestController(ClinicService clinicService, EntityMapper entityMapper) {
+        this.clinicService = clinicService;
+        this.entityMapper = entityMapper;
+    }
+
+    @PreAuthorize("hasRole(@roles.ENTITY_ADMIN)")
+    @Override
+    public ResponseEntity<List<EntityDto>> listEntities() {
+        Collection<Entity> entities = this.clinicService.findAllEntities();
+        if (entities.isEmpty()) {
+            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+        }
+        return new ResponseEntity<>(entityMapper.toEntityDtos(entities), HttpStatus.OK);
+    }
+
+    @PreAuthorize("hasRole(@roles.ENTITY_ADMIN)")
+    @Override
+    public ResponseEntity<EntityDto> getEntity(Integer entityId) {
+        Entity entity = this.clinicService.findEntityById(entityId);
+        if (entity == null) {
+            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+        }
+        return new ResponseEntity<>(entityMapper.toEntityDto(entity), HttpStatus.OK);
+    }
+
+    @PreAuthorize("hasRole(@roles.ENTITY_ADMIN)")
+    @Override
+    public ResponseEntity<EntityDto> addEntity(EntityFieldsDto entityFieldsDto) {
+        HttpHeaders headers = new HttpHeaders();
+        Entity entity = entityMapper.toEntity(entityFieldsDto);
+        this.clinicService.saveEntity(entity);
+        headers.setLocation(UriComponentsBuilder.newInstance()
+            .path("/api/entities/{id}").buildAndExpand(entity.getId()).toUri());
+        return new ResponseEntity<>(entityMapper.toEntityDto(entity), headers, HttpStatus.CREATED);
+    }
+
+    @PreAuthorize("hasRole(@roles.ENTITY_ADMIN)")
+    @Override
+    public ResponseEntity<EntityDto> updateEntity(Integer entityId, EntityFieldsDto entityFieldsDto) {
+        Entity currentEntity = this.clinicService.findEntityById(entityId);
+        if (currentEntity == null) {
+            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+        }
+        currentEntity.setFieldName(entityFieldsDto.getFieldName());
+        this.clinicService.saveEntity(currentEntity);
+        return new ResponseEntity<>(entityMapper.toEntityDto(currentEntity), HttpStatus.NO_CONTENT);
+    }
+
+    @PreAuthorize("hasRole(@roles.ENTITY_ADMIN)")
+    @Transactional
+    @Override
+    public ResponseEntity<EntityDto> deleteEntity(Integer entityId) {
+        Entity entity = this.clinicService.findEntityById(entityId);
+        if (entity == null) {
+            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+        }
+        this.clinicService.deleteEntity(entity);
+        return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+    }
+}
+```
+
+---
+
+## HTTP Response Codes
+
+| Operation | Success | Not Found | Client Error |
+|-----------|---------|-----------|--------------|
+| GET (list) | 200 OK | 404 Not Found | - |
+| GET (single) | 200 OK | 404 Not Found | - |
+| POST (create) | 201 Created | - | 400 Bad Request |
+| PUT (update) | 204 No Content | 404 Not Found | 400 Bad Request |
+| DELETE | 204 No Content | 404 Not Found | - |
+
+---
+
+## Security Roles
+
+```java
+// Available roles in security/Roles.java
+@roles.OWNER_ADMIN  // For owners, pets, visits
+@roles.VET_ADMIN    // For vets, specialties, pet types
+@roles.ADMIN        // For user management
+
+// Usage in controller
+@PreAuthorize("hasRole(@roles.OWNER_ADMIN)")
+public ResponseEntity<OwnerDto> getOwner(Integer ownerId) { ... }
+
+@PreAuthorize("hasRole(@roles.VET_ADMIN)")
+public ResponseEntity<VetDto> getVet(Integer vetId) { ... }
+```
+
+---
+
+## MapStruct Mapper Pattern
+
+```java
+package org.springframework.samples.petclinic.mapper;
+
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+import org.springframework.samples.petclinic.model.Entity;
+import org.springframework.samples.petclinic.rest.dto.EntityDto;
+import org.springframework.samples.petclinic.rest.dto.EntityFieldsDto;
+
+import java.util.Collection;
+import java.util.List;
+
+@Mapper(uses = {RelatedMapper.class})  // Include related mappers
+public interface EntityMapper {
+
+    EntityDto toEntityDto(Entity entity);
+
+    Entity toEntity(EntityDto entityDto);
+
+    Entity toEntity(EntityFieldsDto entityFieldsDto);
+
+    List<EntityDto> toEntityDtos(Collection<Entity> entities);
+
+    Collection<Entity> toEntities(Collection<EntityDto> entityDtos);
+
+    // For nested ID mapping
+    @Mapping(source = "parent.id", target = "parentId")
+    EntityDto toEntityDtoWithParentId(Entity entity);
+}
+```
+
+---
+
+## Adding New Endpoints
+
+### Step 1: Update OpenAPI Specification
+```yaml
+# src/main/resources/openapi.yml
+paths:
+  /appointments:
+    get:
+      tags:
+        - appointment
+      operationId: listAppointments
+      summary: Lists appointments
+      responses:
+        200:
+          description: Appointments found
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Appointment'
+    post:
+      tags:
+        - appointment
+      operationId: addAppointment
+      summary: Create appointment
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AppointmentFields'
+      responses:
+        201:
+          description: Appointment created
+
+components:
+  schemas:
+    Appointment:
+      type: object
+      properties:
+        id:
+          type: integer
+        petId:
+          type: integer
+        vetId:
+          type: integer
+        scheduledAt:
+          type: string
+          format: date-time
+    AppointmentFields:
+      type: object
+      properties:
+        petId:
+          type: integer
+        vetId:
+          type: integer
+        scheduledAt:
+          type: string
+          format: date-time
+```
+
+### Step 2: Generate DTOs
+```bash
+mvn compile
+```
+
+### Step 3: Create Mapper
+```java
+@Mapper(uses = {PetMapper.class, VetMapper.class})
+public interface AppointmentMapper {
+    @Mapping(source = "pet.id", target = "petId")
+    @Mapping(source = "vet.id", target = "vetId")
+    AppointmentDto toAppointmentDto(Appointment appointment);
+    
+    Appointment toAppointment(AppointmentDto dto);
+    Appointment toAppointment(AppointmentFieldsDto dto);
+    List<AppointmentDto> toAppointmentDtos(Collection<Appointment> appointments);
+}
+```
+
+### Step 4: Create Controller
+```java
+@RestController
+@CrossOrigin(exposedHeaders = "errors, content-type")
+@RequestMapping("/api")
+public class AppointmentRestController implements AppointmentsApi {
+    // Implementation following template above
+}
+```
+
+---
+
+## Common Mistakes to Avoid
+
+| ❌ Don't | ✅ Do |
+|----------|------|
+| Return entity directly | Use mapper to convert to DTO |
+| Inject repository in controller | Inject ClinicService (facade) |
+| Forget `@PreAuthorize` | Add security annotation |
+| Use wrong HTTP status codes | Follow standard conventions |
+| Create DTOs manually | Generate from OpenAPI spec |
+| Forget `@CrossOrigin` | Add for frontend compatibility |

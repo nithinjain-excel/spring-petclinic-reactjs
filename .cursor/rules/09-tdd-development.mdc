@@ -1,0 +1,171 @@
+---
+alwaysApply: true
+---
+## PRD Document Structure
+
+New feature PRD documents MUST include:
+
+```markdown
+# Feature Name - Technical PRD
+
+## Overview
+Brief description of the feature
+
+## Phase Breakdown
+| Phase | Description | Dependencies | Deliverables |
+|-------|-------------|--------------|--------------|
+| 1 | ... | None | ... |
+| 2 | ... | Phase 1 | ... |
+
+## Phase 1: [Phase Name]
+### Objective
+### Unit Tests to Write
+### Implementation Details
+### Acceptance Criteria
+
+## Phase 2: [Phase Name]
+...
+```
+
+### Phase Requirements
+- Each phase MUST be **self-contained**
+- Each phase MUST be **independently deployable**
+- Each phase MUST have **clear acceptance criteria**
+- Each phase MUST follow **TDD workflow**
+
+---
+
+## TDD Workflow Per Phase
+
+### Step 1: Write Unit Test and Execute (RED)
+
+```
+┌─────────────────────────────────────────────┐
+│  1. Write unit test for expected behavior   │
+│  2. Run test: ./mvnw test -Dtest=TestClass  │
+│  3. Test MUST FAIL (RED) - no code yet      │
+└─────────────────────────────────────────────┘
+```
+
+**Command:**
+```bash
+# Windows PowerShell
+.\mvnw.cmd test -Dtest=TestClassName
+
+# Linux/Mac
+./mvnw test -Dtest=TestClassName
+```
+
+**Expected:** BUILD FAILURE ❌ (RED)
+
+---
+
+### Step 2: Implement Feature and Execute Test (GREEN)
+
+```
+┌─────────────────────────────────────────────┐
+│  1. Implement the feature code              │
+│  2. Run test: ./mvnw test -Dtest=TestClass  │
+│  3. Test MUST PASS (GREEN)                  │
+│  4. If FAIL → Fix code and repeat           │
+└─────────────────────────────────────────────┘
+```
+
+**Expected:** BUILD SUCCESS ✅ (GREEN)
+
+---
+
+### Step 3: Manual Testing by User
+
+```
+┌─────────────────────────────────────────────┐
+│  1. Notify user phase is complete           │
+│  2. Provide manual testing instructions     │
+│  3. User performs manual verification       │
+└─────────────────────────────────────────────┘
+```
+
+---
+
+### Step 4: WAIT for User Instructions
+
+```
+┌─────────────────────────────────────────────┐
+│  ⏸️  STOP - Do NOT proceed until user       │
+│      explicitly instructs to continue       │
+└─────────────────────────────────────────────┘
+```
+
+---
+
+## Phase Implementation Checklist
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 1 | Write unit test | Test code created |
+| 2 | Run `./mvnw test` | ❌ FAIL (RED) |
+| 3 | Implement feature code | Feature code created |
+| 4 | Run `./mvnw test` | ✅ PASS (GREEN) |
+| 5 | Notify user | User does manual testing |
+| 6 | **WAIT** | Await user instructions |
+
+---
+
+## Communication Template
+
+### After Step 1 (RED)
+```
+✅ Unit test written: [TestClassName#testMethodName]
+❌ Test executed: FAILED (RED) - as expected
+
+Proceeding to implement the feature...
+```
+
+### After Step 2 (GREEN)
+```
+✅ Feature implemented
+✅ Test executed: PASSED (GREEN)
+
+📋 Manual Testing Instructions:
+1. Start the server: .\mvnw.cmd spring-boot:run
+2. [Testing step]
+3. [Testing step]
+
+⏸️ WAITING for your confirmation to proceed to next phase.
+```
+
+---
+
+## Test Naming Convention
+
+| Test Type | Pattern | Example |
+|-----------|---------|---------|
+| Success | `test{Action}{Entity}Success` | `testLoginSuccess` |
+| Failure | `test{Action}{Entity}Failure` | `testLoginFailure` |
+| Condition | `test{Action}With{Condition}` | `testLoginWithInvalidPassword` |
+
+---
+
+## Commands Quick Reference
+
+```bash
+# Run specific test class
+.\mvnw.cmd test -Dtest=AuthRestControllerTests
+
+# Run specific test method
+.\mvnw.cmd test -Dtest=AuthRestControllerTests#testLoginSuccess
+
+# Run all tests
+.\mvnw.cmd test
+```
+
+---
+
+## Rules Summary
+
+| Rule | Description |
+|------|-------------|
+| **Test First** | Write unit test BEFORE implementation |
+| **Verify RED** | Test MUST fail before writing feature code |
+| **Verify GREEN** | Test MUST pass after implementation |
+| **User Approval** | WAIT for user confirmation before next phase |

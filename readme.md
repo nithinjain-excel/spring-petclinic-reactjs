@@ -95,6 +95,35 @@ Open http://localhost:3000 in your browser.
 | Database | HSQLDB (in-memory, auto-populated) |
 | Security | Disabled by default |
 
+### Running Unit Tests
+
+Run all backend unit tests:
+```bash
+# On Linux/Mac:
+./mvnw test
+
+# On Windows (PowerShell):
+.\mvnw.cmd test
+```
+
+Run a specific test class:
+```bash
+# On Linux/Mac:
+./mvnw test -Dtest=OwnerRestControllerTests
+
+# On Windows (PowerShell):
+.\mvnw.cmd test -Dtest=OwnerRestControllerTests
+```
+
+Run a specific test method:
+```bash
+# On Linux/Mac:
+./mvnw test -Dtest=OwnerRestControllerTests#testGetOwnerSuccess
+
+# On Windows (PowerShell):
+.\mvnw.cmd test -Dtest=OwnerRestControllerTests#testGetOwnerSuccess
+```
+
 (Why not use the same server for backend and frontend? Because Webpack does a great job for serving JavaScript-based SPAs and I think it's not too uncommon to run this kind of apps using two dedicated server, one for backend, one for frontend)
 
 ## Feedback

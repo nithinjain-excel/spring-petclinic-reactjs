@@ -1,6 +1,7 @@
 package org.springframework.samples.petclinic.service;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataAccessException;
 import org.springframework.samples.petclinic.model.User;
 import org.springframework.samples.petclinic.model.Role;
 import org.springframework.samples.petclinic.repository.UserRepository;
@@ -32,5 +33,25 @@ public class UserServiceImpl implements UserService {
         }
 
         userRepository.save(user);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public User findByUsername(String username) throws DataAccessException {
+        return userRepository.findByUsername(username);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public boolean validateCredentials(String username, String password) {
+        User user = userRepository.findByUsername(username);
+        if (user == null || !user.getEnabled()) {
+            return false;
+        }
+        String storedPassword = user.getPassword();
+        if (storedPassword.startsWith("{noop}")) {
+            storedPassword = storedPassword.substring(6);
+        }
+        return storedPassword.equals(password);
     }
 }

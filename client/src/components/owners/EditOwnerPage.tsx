@@ -2,7 +2,7 @@ import * as React from 'react';
 import OwnerEditor from './OwnerEditor';
 
 import { IOwner } from '../../types';
-import { url } from '../../util';
+import { url, fetchWithAuth } from '../../util';
 
 interface IEditOwnerPageProps {
   params?: { ownerId?: string };
@@ -18,7 +18,7 @@ export default class EditOwnerPage extends React.Component<IEditOwnerPageProps, 
 
     if (params && params.ownerId) {
       const fetchUrl = url(`/api/owner/${params.ownerId}`);
-      fetch(fetchUrl)
+      fetchWithAuth(fetchUrl)
         .then(response => response.json())
         .then(owner => this.setState({ owner }));
     }

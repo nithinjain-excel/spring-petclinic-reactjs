@@ -1,0 +1,170 @@
+# Database & Migration Rules
+# Applies to: SQL scripts, schema changes, database configuration
+
+---
+
+## Current State
+
+> **⚠️ NO MIGRATION TOOL** - This project uses Spring SQL initialization, NOT Flyway/Liquibase.
+> Scripts run on EVERY startup. HSQLDB is in-memory - ALL DATA LOST on restart.
+
+---
+
+## SQL Script Locations
+
+```
+src/main/resources/db/
+├── hsqldb/
+│   ├── initDB.sql      # Schema creation
+│   └── populateDB.sql  # Sample data
+├── mysql/
+│   ├── initDB.sql
+│   └── populateDB.sql
+└── postgresql/
+    ├── initDB.sql
+    └── populateDB.sql
+```
+
+---
+
+## CRITICAL RULES
+
+### Rule 1: Update ALL Three Database Scripts
+When modifying schema, **ALWAYS update all three database folders**:
+- `db/hsqldb/initDB.sql`
+- `db/mysql/initDB.sql`
+- `db/postgresql/initDB.sql`
+
+### Rule 2: Use Correct Auto-Increment Syntax
+```sql
+-- HSQLDB (default)
+id INTEGER IDENTITY PRIMARY KEY
+
+-- MySQL
+id INT NOT NULL AUTO_INCREMENT PRIMARY KEY
+
+-- PostgreSQL
+id SERIAL PRIMARY KEY
+```
+
+### Rule 3: Create Indexes on Foreign Keys
+```sql
+CREATE INDEX pets_owner_id ON pets (owner_id);
+CREATE INDEX visits_pet_id ON visits (pet_id);
+```
+
+### Rule 4: Table Creation Order
+Foreign keys must reference existing tables. Order in `initDB.sql`:
+1. Parent tables first (owners, types, vets, specialties, users)
+2. Child tables after (pets, vet_specialties, roles)
+3. Grandchild tables last (visits)
+
+---
+
+## Naming Conventions
+
+### Tables
+```sql
+-- Lowercase, plural
+CREATE TABLE owners (...)
+CREATE TABLE pet_types (...)
+CREATE TABLE vet_specialties (...)  -- Junction tables: entity1_entity2
+```
+
+### Columns
+```sql
+-- Lowercase, snake_case
+first_name VARCHAR(30)
+birth_date DATE
+owner_id INTEGER NOT NULL
+created_at TIMESTAMP
+```
+
+### Indexes
+```sql
+-- Pattern: table_column
+CREATE INDEX owners_last_name ON owners (last_name);
+CREATE INDEX pets_name ON pets (name);
+```
+
+### Foreign Key Constraints
+```sql
+-- Pattern: fk_child_parent
+ALTER TABLE pets ADD CONSTRAINT fk_pets_owners 
+  FOREIGN KEY (owner_id) REFERENCES owners (id);
+```
+
+---
+
+## Adding a New Table
+
+### Step 1: Add to initDB.sql (all three databases)
+
+```sql
+-- Create table with proper order (after parent tables)
+CREATE TABLE appointments (
+  id           INTEGER IDENTITY PRIMARY KEY,  -- HSQLDB syntax
+  pet_id       INTEGER NOT NULL,
+  vet_id       INTEGER NOT NULL,
+  scheduled_at TIMESTAMP NOT NULL,
+  notes        VARCHAR(500),
+  status       VARCHAR(20) DEFAULT 'SCHEDULED'
+);
+
+-- Add foreign key constraints
+ALTER TABLE appointments ADD CONSTRAINT fk_appointments_pets 
+  FOREIGN KEY (pet_id) REFERENCES pets (id);
+ALTER TABLE appointments ADD CONSTRAINT fk_appointments_vets 
+  FOREIGN KEY (vet_id) REFERENCES vets (id);
+
+-- Add indexes for foreign keys and frequently queried columns
+CREATE INDEX appointments_pet_id ON appointments (pet_id);
+CREATE INDEX appointments_vet_id ON appointments (vet_id);
+CREATE INDEX appointments_scheduled_at ON appointments (scheduled_at);
+```
+
+### Step 2: Add sample data to populateDB.sql
+
+```sql
+INSERT INTO appointments VALUES (1, 1, 1, '2026-02-01 10:00:00', 'Annual checkup', 'SCHEDULED');
+INSERT INTO appointments VALUES (2, 2, 2, '2026-02-01 11:00:00', 'Vaccination', 'SCHEDULED');
+```
+
+---
+
+## Column Types Reference
+
+| Type | HSQLDB | MySQL | PostgreSQL |
+|------|--------|-------|------------|
+| Auto ID | `INTEGER IDENTITY` | `INT AUTO_INCREMENT` | `SERIAL` |
+| String | `VARCHAR(n)` | `VARCHAR(n)` | `VARCHAR(n)` |
+| Case-insensitive | `VARCHAR_IGNORECASE(n)` | `VARCHAR(n)` | `CITEXT` |
+| Date | `DATE` | `DATE` | `DATE` |
+| Timestamp | `TIMESTAMP` | `DATETIME` | `TIMESTAMP` |
+| Boolean | `BOOLEAN` | `BOOLEAN` | `BOOLEAN` |
+| Integer | `INTEGER` | `INT` | `INTEGER` |
+
+---
+
+## Database Profile Configuration
+
+```properties
+# application.properties
+spring.profiles.active=hsqldb,spring-data-jpa
+
+# Switch database by changing profile:
+# spring.profiles.active=mysql,spring-data-jpa
+# spring.profiles.active=postgresql,spring-data-jpa
+```
+
+---
+
+## Common Mistakes to Avoid
+
+| ❌ Don't | ✅ Do |
+|----------|------|
+| Update only hsqldb scripts | Update all three database scripts |
+| Use `AUTO_INCREMENT` in HSQLDB | Use `INTEGER IDENTITY` |
+| Forget indexes on FK columns | Always create indexes for FKs |
+| Put seed data in initDB.sql | Put seed data in populateDB.sql |
+| Create child tables before parents | Order tables by dependencies |

@@ -1,0 +1,298 @@
+# Service Layer Rules
+# Applies to: Business logic, transaction management, facade pattern
+
+---
+
+## Package Location
+
+```
+src/main/java/org/springframework/samples/petclinic/service/
+├── ClinicService.java        # Interface (facade for all domain operations)
+├── ClinicServiceImpl.java    # Implementation
+├── UserService.java          # User-specific interface
+└── UserServiceImpl.java      # User-specific implementation
+```
+
+---
+
+## Architecture Pattern
+
+The **ClinicService** acts as a **FACADE** - a single entry point for all controllers.
+
+```
+┌─────────────────────────────────────────────────────┐
+│              REST Controllers                        │
+│  (OwnerRestController, PetRestController, etc.)     │
+└─────────────────────┬───────────────────────────────┘
+                      │
+                      ▼
+┌─────────────────────────────────────────────────────┐
+│              ClinicService (Facade)                  │
+│  - Single entry point for all operations            │
+│  - Transaction management                           │
+│  - Exception handling                               │
+└─────────────────────┬───────────────────────────────┘
+                      │
+         ┌────────────┼────────────┐
+         ▼            ▼            ▼
+┌──────────────┐ ┌──────────────┐ ┌──────────────┐
+│OwnerRepository│ │PetRepository │ │VetRepository │
+└──────────────┘ └──────────────┘ └──────────────┘
+```
+
+---
+
+## Service Interface Pattern
+
+```java
+package org.springframework.samples.petclinic.service;
+
+import org.springframework.dao.DataAccessException;
+import java.util.Collection;
+
+public interface ClinicService {
+
+    // Entity CRUD operations
+    Entity findEntityById(int id) throws DataAccessException;
+    Collection<Entity> findAllEntities() throws DataAccessException;
+    void saveEntity(Entity entity) throws DataAccessException;
+    void deleteEntity(Entity entity) throws DataAccessException;
+    
+    // Custom query operations
+    Collection<Entity> findEntityByFieldName(String value) throws DataAccessException;
+}
+```
+
+---
+
+## Service Implementation Pattern
+
+```java
+package org.springframework.samples.petclinic.service;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataAccessException;
+import org.springframework.dao.EmptyResultDataAccessException;
+import org.springframework.orm.ObjectRetrievalFailureException;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Collection;
+
+@Service
+public class ClinicServiceImpl implements ClinicService {
+
+    private final EntityRepository entityRepository;
+
+    @Autowired
+    public ClinicServiceImpl(EntityRepository entityRepository) {
+        this.entityRepository = entityRepository;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Entity findEntityById(int id) throws DataAccessException {
+        Entity entity = null;
+        try {
+            entity = entityRepository.findById(id);
+        } catch (ObjectRetrievalFailureException | EmptyResultDataAccessException e) {
+            // Return null for not found - let controller handle 404
+            return null;
+        }
+        return entity;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Collection<Entity> findAllEntities() throws DataAccessException {
+        return entityRepository.findAll();
+    }
+
+    @Override
+    @Transactional
+    public void saveEntity(Entity entity) throws DataAccessException {
+        entityRepository.save(entity);
+    }
+
+    @Override
+    @Transactional
+    public void deleteEntity(Entity entity) throws DataAccessException {
+        entityRepository.delete(entity);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Collection<Entity> findEntityByFieldName(String value) throws DataAccessException {
+        return entityRepository.findByFieldName(value);
+    }
+}
+```
+
+---
+
+## CRITICAL RULES
+
+### Rule 1: Use Constructor Injection
+```java
+// ✅ Good - Constructor injection (testable, immutable)
+@Service
+public class ClinicServiceImpl implements ClinicService {
+    private final OwnerRepository ownerRepository;
+    private final PetRepository petRepository;
+
+    @Autowired
+    public ClinicServiceImpl(OwnerRepository ownerRepository, PetRepository petRepository) {
+        this.ownerRepository = ownerRepository;
+        this.petRepository = petRepository;
+    }
+}
+
+// ❌ Bad - Field injection (harder to test)
+@Service
+public class ClinicServiceImpl implements ClinicService {
+    @Autowired
+    private OwnerRepository ownerRepository;
+}
+```
+
+### Rule 2: Use @Transactional Appropriately
+```java
+// Read operations - use readOnly = true
+@Transactional(readOnly = true)
+public Entity findEntityById(int id) { ... }
+
+@Transactional(readOnly = true)
+public Collection<Entity> findAllEntities() { ... }
+
+// Write operations - use default (read-write)
+@Transactional
+public void saveEntity(Entity entity) { ... }
+
+@Transactional
+public void deleteEntity(Entity entity) { ... }
+```
+
+### Rule 3: Handle Not Found Gracefully
+```java
+@Override
+@Transactional(readOnly = true)
+public Entity findEntityById(int id) throws DataAccessException {
+    Entity entity = null;
+    try {
+        entity = entityRepository.findById(id);
+    } catch (ObjectRetrievalFailureException | EmptyResultDataAccessException e) {
+        // Return null - let controller return 404
+        return null;
+    }
+    return entity;
+}
+```
+
+### Rule 4: Controllers Must Use ClinicService
+```java
+// ✅ Good - Use service facade
+@RestController
+public class OwnerRestController {
+    private final ClinicService clinicService;  // Use facade
+    
+    public ResponseEntity<OwnerDto> getOwner(Integer ownerId) {
+        Owner owner = this.clinicService.findOwnerById(ownerId);
+    }
+}
+
+// ❌ Bad - Direct repository access in controller
+@RestController
+public class OwnerRestController {
+    private final OwnerRepository ownerRepository;  // Don't do this!
+}
+```
+
+---
+
+## Adding New Operations
+
+### Step 1: Add to Interface
+```java
+// ClinicService.java
+public interface ClinicService {
+    // Existing methods...
+    
+    // Add new method
+    Appointment findAppointmentById(int id) throws DataAccessException;
+    Collection<Appointment> findAppointmentsByPetId(int petId) throws DataAccessException;
+    void saveAppointment(Appointment appointment) throws DataAccessException;
+    void deleteAppointment(Appointment appointment) throws DataAccessException;
+}
+```
+
+### Step 2: Implement in ClinicServiceImpl
+```java
+// ClinicServiceImpl.java
+@Service
+public class ClinicServiceImpl implements ClinicService {
+    
+    private final AppointmentRepository appointmentRepository;
+    
+    @Autowired
+    public ClinicServiceImpl(
+            // ... existing repos
+            AppointmentRepository appointmentRepository) {
+        // ... existing assignments
+        this.appointmentRepository = appointmentRepository;
+    }
+    
+    @Override
+    @Transactional(readOnly = true)
+    public Appointment findAppointmentById(int id) throws DataAccessException {
+        Appointment appointment = null;
+        try {
+            appointment = appointmentRepository.findById(id);
+        } catch (ObjectRetrievalFailureException | EmptyResultDataAccessException e) {
+            return null;
+        }
+        return appointment;
+    }
+    
+    @Override
+    @Transactional(readOnly = true)
+    public Collection<Appointment> findAppointmentsByPetId(int petId) throws DataAccessException {
+        return appointmentRepository.findByPetId(petId);
+    }
+    
+    @Override
+    @Transactional
+    public void saveAppointment(Appointment appointment) throws DataAccessException {
+        appointmentRepository.save(appointment);
+    }
+    
+    @Override
+    @Transactional
+    public void deleteAppointment(Appointment appointment) throws DataAccessException {
+        appointmentRepository.delete(appointment);
+    }
+}
+```
+
+---
+
+## Transaction Propagation
+
+| Method Type | Annotation | Reason |
+|-------------|------------|--------|
+| Read single | `@Transactional(readOnly = true)` | Performance optimization |
+| Read collection | `@Transactional(readOnly = true)` | Performance optimization |
+| Create/Update | `@Transactional` | Needs write access |
+| Delete | `@Transactional` | Needs write access |
+
+---
+
+## Common Mistakes to Avoid
+
+| ❌ Don't | ✅ Do |
+|----------|------|
+| Use field injection | Use constructor injection |
+| Forget `@Transactional` | Add to all service methods |
+| Use `@Transactional` for reads | Use `@Transactional(readOnly = true)` |
+| Throw exceptions for not found | Return null, let controller handle 404 |
+| Access repository from controller | Use ClinicService facade |
+| Put business logic in controller | Put in service layer |

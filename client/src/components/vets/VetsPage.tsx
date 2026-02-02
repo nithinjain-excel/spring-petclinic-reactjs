@@ -1,7 +1,7 @@
 import * as React from 'react';
 
 import { IRouter, Link } from 'react-router';
-import { url } from '../../util';
+import { url, fetchWithAuth } from '../../util';
 
 import { IVet } from '../../types';
 
@@ -19,7 +19,7 @@ export default class VetsPage extends React.Component<void, IVetsPageState> {
   componentDidMount() {
     const requestUrl = url('api/vets');
 
-    fetch(requestUrl)
+    fetchWithAuth(requestUrl)
       .then(response => response.json())
       .then(vets => { console.log('vets', vets); this.setState({ vets }); });
   }

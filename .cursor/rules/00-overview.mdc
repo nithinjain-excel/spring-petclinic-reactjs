@@ -1,0 +1,75 @@
+# Spring PetClinic - Cursor Rules Overview
+# Version: 1.0 | Date: 2026-01-17
+
+## Project Summary
+
+This is a Spring Boot 3.2.1 REST API backend with a React 15.x TypeScript frontend.
+
+| Component | Technology | Version |
+|-----------|------------|---------|
+| Backend Framework | Spring Boot | 3.2.1 |
+| Language | Java | 17+ |
+| Build Tool | Maven | 3.x |
+| Frontend | React + TypeScript | 15.x / 4.9.x |
+| Database | HSQLDB (default), MySQL, PostgreSQL | - |
+
+---
+
+## Rules Files Index
+
+| File | Description | When to Use |
+|------|-------------|-------------|
+| `01-database.mdc` | Database schema, SQL scripts, migration | Adding tables, columns, indexes |
+| `02-entity-jpa.mdc` | JPA entities, validation, relationships | Creating/modifying domain models |
+| `03-repository.mdc` | Data access layer, Spring Data JPA | Adding repository methods |
+| `04-service.mdc` | Service layer, transactions, business logic | Adding business operations |
+| `05-controller-api.mdc` | REST controllers, OpenAPI, mappers | Adding API endpoints |
+| `06-spring-framework.mdc` | Spring Boot config, profiles, DI | Configuration changes |
+| `07-unit-testing.mdc` | Unit test conventions and patterns | Writing unit tests |
+| `08-checklist.mdc` | New feature checklist, common mistakes | Adding new domain entities |
+| `09-tdd-development.mdc` | Test-Driven Development workflow | New feature development |
+
+---
+
+## Documentation References
+
+Before making changes, consult these documents in `docs/`:
+
+| Document | Purpose |
+|----------|---------|
+| `ARCHITECTURE.md` | System architecture and design patterns |
+| `baseline/AUTHENTICATION_BASELINE_PRD.md` | Authentication domain baseline |
+| `baseline/OWNERS_BASELINE_PRD.md` | Owners domain baseline |
+| `baseline/PETS_BASELINE_PRD.md` | Pets domain baseline |
+| `baseline/VETS_BASELINE_PRD.md` | Vets domain baseline |
+| `baseline/VISITS_BASELINE_PRD.md` | Visits domain baseline |
+
+---
+
+## Quick Reference URLs
+
+| Resource | URL |
+|----------|-----|
+| Backend API | http://localhost:9966/petclinic/api |
+| Swagger UI | http://localhost:9966/petclinic/swagger-ui.html |
+| Frontend | http://localhost:3000 |
+| Actuator | http://localhost:9966/petclinic/actuator |
+
+---
+
+## Useful Commands
+
+```bash
+# Build project
+./mvnw clean install        # Linux/Mac
+.\mvnw.cmd clean install    # Windows
+
+# Run application
+./mvnw spring-boot:run
+
+# Generate OpenAPI DTOs
+./mvnw compile
+
+# Run tests
+./mvnw test
+```

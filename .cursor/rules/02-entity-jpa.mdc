@@ -1,0 +1,211 @@
+# JPA Entity Layer Rules
+# Applies to: Domain models, entity classes, JPA annotations, validation
+
+---
+
+## Package Location
+
+```
+src/main/java/org/springframework/samples/petclinic/model/
+```
+
+---
+
+## Entity Class Hierarchy
+
+```
+BaseEntity (id, isNew)
+├── NamedEntity (name)
+│   ├── Pet
+│   ├── PetType
+│   └── Specialty
+├── Person (firstName, lastName)
+│   ├── Owner
+│   └── Vet
+├── Visit
+├── User
+└── Role
+```
+
+**When creating a new entity, extend the appropriate base class.**
+
+---
+
+## Entity Template
+
+```java
+package org.springframework.samples.petclinic.model;
+
+import jakarta.persistence.*;
+import jakarta.validation.constraints.*;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import java.time.LocalDate;
+import java.util.*;
+
+@Entity
+@Table(name = "table_name")  // Plural, lowercase
+public class EntityName extends BaseEntity {  // or NamedEntity, Person
+
+    @Column(name = "column_name")  // snake_case
+    @NotEmpty  // Validation
+    private String fieldName;  // camelCase
+
+    @Column(name = "date_field", columnDefinition = "DATE")
+    private LocalDate dateField;
+
+    // ManyToOne relationship
+    @ManyToOne
+    @JoinColumn(name = "parent_id")
+    private ParentEntity parent;
+
+    // OneToMany relationship
+    @OneToMany(cascade = CascadeType.ALL, mappedBy = "thisEntity", fetch = FetchType.EAGER)
+    private Set<ChildEntity> children;
+
+    // Getters and setters
+    public String getFieldName() {
+        return this.fieldName;
+    }
+
+    public void setFieldName(String fieldName) {
+        this.fieldName = fieldName;
+    }
+}
+```
+
+---
+
+## Naming Conventions
+
+| Element | Convention | Example |
+|---------|------------|---------|
+| Class name | Singular, PascalCase | `Owner`, `PetType` |
+| Table name | Plural, lowercase | `owners`, `pet_types` |
+| Property name | camelCase | `firstName`, `birthDate` |
+| Column name | snake_case | `first_name`, `birth_date` |
+
+---
+
+## Validation Annotations
+
+```java
+// String validations
+@NotEmpty                    // Not null and not empty
+@NotBlank                    // Not null, not empty, not whitespace
+@Size(min = 1, max = 80)     // Length constraints
+@Email                       // Email format
+
+// Number validations
+@NotNull                     // Not null (any type)
+@Digits(fraction = 0, integer = 10)  // Phone numbers
+@Min(0) @Max(100)            // Range
+
+// Date validations
+@Past                        // Must be in the past
+@Future                      // Must be in the future
+@PastOrPresent              // Past or current date
+```
+
+---
+
+## Relationship Rules
+
+### OneToMany (Parent side)
+```java
+@OneToMany(cascade = CascadeType.ALL, mappedBy = "owner", fetch = FetchType.EAGER)
+private Set<Pet> pets;  // Use Set<>, not List<>
+
+// Internal accessor (hidden from JSON)
+@JsonIgnore
+protected Set<Pet> getPetsInternal() {
+    if (this.pets == null) {
+        this.pets = new HashSet<>();
+    }
+    return this.pets;
+}
+
+// Public accessor (unmodifiable)
+public List<Pet> getPets() {
+    List<Pet> sortedPets = new ArrayList<>(getPetsInternal());
+    PropertyComparator.sort(sortedPets, new MutableSortDefinition("name", true, true));
+    return Collections.unmodifiableList(sortedPets);
+}
+
+// Helper method for bidirectional relationship
+public void addPet(Pet pet) {
+    getPetsInternal().add(pet);
+    pet.setOwner(this);
+}
+```
+
+### ManyToOne (Child side)
+```java
+@ManyToOne
+@JoinColumn(name = "owner_id")
+private Owner owner;
+```
+
+### ManyToMany
+```java
+@ManyToMany(fetch = FetchType.EAGER)
+@JoinTable(name = "vet_specialties",
+    joinColumns = @JoinColumn(name = "vet_id"),
+    inverseJoinColumns = @JoinColumn(name = "specialty_id"))
+private Set<Specialty> specialties;
+```
+
+---
+
+## Fetch Type Guidelines
+
+| Use Case | Fetch Type | Reason |
+|----------|------------|--------|
+| Small, always needed collection | `EAGER` | Avoid lazy loading issues |
+| Large or optional collection | `LAZY` | Performance optimization |
+| Single entity reference | `LAZY` (default) | Load on demand |
+
+---
+
+## Column Definition for Dates
+
+```java
+// Always specify columnDefinition for dates
+@Column(name = "birth_date", columnDefinition = "DATE")
+private LocalDate birthDate;
+
+@Column(name = "visit_date", columnDefinition = "DATE")
+private LocalDate visitDate;
+
+@Column(name = "created_at", columnDefinition = "TIMESTAMP")
+private LocalDateTime createdAt;
+```
+
+---
+
+## JSON Serialization
+
+```java
+// Hide internal methods from JSON
+@JsonIgnore
+protected Set<Pet> getPetsInternal() { ... }
+
+@JsonIgnore
+public boolean isNew() { ... }
+
+// For circular reference prevention
+@JsonIgnore
+private Owner owner;  // On child side if needed
+```
+
+---
+
+## Common Mistakes to Avoid
+
+| ❌ Don't | ✅ Do |
+|----------|------|
+| Use `List<>` for @OneToMany | Use `Set<>` (prevents duplicates) |
+| Forget `mappedBy` on inverse side | Always specify `mappedBy` |
+| Expose internal collections | Return unmodifiable views |
+| Skip validation annotations | Add appropriate validation |
+| Use field injection in entities | Entities don't use DI |
+| Forget `@Column(name=...)` | Always map to snake_case column |

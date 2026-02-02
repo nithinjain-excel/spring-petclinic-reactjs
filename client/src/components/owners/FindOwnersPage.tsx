@@ -2,7 +2,7 @@ import * as React from 'react';
 
 import { IRouter, Link } from 'react-router';
 import { IOwner, IRouterContext } from '../../types';
-import { url } from '../../util';
+import { url, fetchWithAuth } from '../../util';
 
 import OwnersTable from './OwnersTable';
 
@@ -87,7 +87,7 @@ export default class FindOwnersPage extends React.Component<IFindOwnersPageProps
     const query = filter ? encodeURIComponent(filter) : '';
     const requestUrl = url('api/owners?lastName=' + query);
 
-    fetch(requestUrl)
+    fetchWithAuth(requestUrl)
       .then(response => response.json())
       .then(owners => { this.setState({ owners }); });
   }

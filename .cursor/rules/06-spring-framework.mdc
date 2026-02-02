@@ -1,0 +1,264 @@
+# Spring Boot & Framework Rules
+# Applies to: Configuration, profiles, dependency injection, security
+
+---
+
+## Configuration Files
+
+```
+src/main/resources/
+├── application.properties             # Main configuration
+├── application-hsqldb.properties      # HSQLDB database profile
+├── application-mysql.properties       # MySQL database profile
+├── application-postgresql.properties  # PostgreSQL database profile
+└── openapi.yml                        # API specification
+```
+
+---
+
+## Profile System
+
+### Active Profiles
+```properties
+# application.properties
+# Format: spring.profiles.active=database,repository
+
+# Default configuration
+spring.profiles.active=hsqldb,spring-data-jpa
+```
+
+### Database Profiles
+| Profile | Database | Type |
+|---------|----------|------|
+| `hsqldb` | HSQLDB | In-memory (default) |
+| `mysql` | MySQL | Persistent |
+| `postgresql` | PostgreSQL | Persistent |
+
+### Repository Profiles
+| Profile | Implementation |
+|---------|---------------|
+| `spring-data-jpa` | Spring Data JPA (default) |
+| `jpa` | JPA/EntityManager |
+| `jdbc` | Spring JDBC |
+
+---
+
+## Main Application Properties
+
+```properties
+# Server Configuration
+server.port=9966
+server.servlet.context-path=/petclinic/
+
+# JPA Configuration
+spring.jpa.open-in-view=false
+
+# Security Toggle
+petclinic.security.enable=false  # Set to true for HTTP Basic Auth
+
+# Logging
+logging.level.org.springframework=INFO
+logging.level.org.springframework.samples.petclinic=DEBUG
+
+# SQL Debugging (uncomment when needed)
+#logging.level.org.hibernate.SQL=DEBUG
+#logging.level.org.hibernate.type.descriptor.sql.BasicBinder=TRACE
+```
+
+---
+
+## Dependency Injection Rules
+
+### Constructor Injection (Preferred)
+```java
+@Service
+public class ClinicServiceImpl implements ClinicService {
+
+    private final OwnerRepository ownerRepository;
+    private final PetRepository petRepository;
+    private final VetRepository vetRepository;
+
+    @Autowired
+    public ClinicServiceImpl(
+            OwnerRepository ownerRepository,
+            PetRepository petRepository,
+            VetRepository vetRepository) {
+        this.ownerRepository = ownerRepository;
+        this.petRepository = petRepository;
+        this.vetRepository = vetRepository;
+    }
+}
+```
+
+### Why Constructor Injection?
+- **Immutability**: Fields can be `final`
+- **Required dependencies**: Compile-time enforcement
+- **Testability**: Easy to mock in tests
+- **Explicit dependencies**: Clear in constructor signature
+
+### Field Injection (Avoid)
+```java
+// ❌ Don't do this
+@Service
+public class ClinicServiceImpl implements ClinicService {
+    @Autowired
+    private OwnerRepository ownerRepository;  // Not testable, not final
+}
+```
+
+---
+
+## Security Configuration
+
+### Security Disabled (Default)
+```java
+// security/DisableSecurityConfig.java
+@Configuration
+@ConditionalOnProperty(name = "petclinic.security.enable", havingValue = "false")
+public class DisableSecurityConfig {
+
+    @Bean
+    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+        http
+            .authorizeHttpRequests(authz -> authz.anyRequest().permitAll())
+            .csrf(csrf -> csrf.disable());
+        return http.build();
+    }
+}
+```
+
+### Security Enabled
+```java
+// security/BasicAuthenticationConfig.java
+@Configuration
+@EnableGlobalMethodSecurity(prePostEnabled = true)
+@ConditionalOnProperty(name = "petclinic.security.enable", havingValue = "true")
+public class BasicAuthenticationConfig {
+
+    @Autowired
+    private DataSource dataSource;
+
+    @Bean
+    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+        http
+            .authorizeHttpRequests(authz -> authz.anyRequest().authenticated())
+            .httpBasic(Customizer.withDefaults())
+            .csrf(csrf -> csrf.disable());
+        return http.build();
+    }
+
+    @Autowired
+    public void configureGlobal(AuthenticationManagerBuilder auth) throws Exception {
+        auth.jdbcAuthentication()
+            .dataSource(dataSource)
+            .usersByUsernameQuery("select username,password,enabled from users where username=?")
+            .authoritiesByUsernameQuery("select username,role from roles where username=?");
+    }
+}
+```
+
+---
+
+## Conditional Bean Registration
+
+```java
+// Register bean only when property has specific value
+@Configuration
+@ConditionalOnProperty(name = "petclinic.security.enable", havingValue = "true")
+public class BasicAuthenticationConfig { ... }
+
+// Register bean only when property is false or missing
+@Configuration
+@ConditionalOnProperty(name = "petclinic.security.enable", havingValue = "false")
+public class DisableSecurityConfig { ... }
+```
+
+---
+
+## Roles Definition
+
+```java
+// security/Roles.java
+@Component
+public class Roles {
+    public final String OWNER_ADMIN = "ROLE_OWNER_ADMIN";
+    public final String VET_ADMIN = "ROLE_VET_ADMIN";
+    public final String ADMIN = "ROLE_ADMIN";
+}
+
+// Usage in controllers
+@PreAuthorize("hasRole(@roles.OWNER_ADMIN)")
+public ResponseEntity<OwnerDto> getOwner(Integer ownerId) { ... }
+```
+
+---
+
+## Bean Naming Conventions
+
+| Type | Naming Pattern | Example |
+|------|---------------|---------|
+| Configuration | `*Config.java` | `SwaggerConfig.java` |
+| Service Interface | `*Service.java` | `ClinicService.java` |
+| Service Impl | `*ServiceImpl.java` | `ClinicServiceImpl.java` |
+| Repository Interface | `*Repository.java` | `OwnerRepository.java` |
+| Spring Data Repo | `SpringData*Repository.java` | `SpringDataOwnerRepository.java` |
+| Controller | `*RestController.java` | `OwnerRestController.java` |
+| Mapper | `*Mapper.java` | `OwnerMapper.java` |
+
+---
+
+## Logging Configuration
+
+```properties
+# Development logging
+logging.level.org.springframework=INFO
+logging.level.org.springframework.samples.petclinic=DEBUG
+
+# SQL query logging (uncomment for debugging)
+#logging.level.org.hibernate.SQL=DEBUG
+#logging.level.org.hibernate.type.descriptor.sql.BasicBinder=TRACE
+
+# Web request logging
+#logging.level.org.springframework.web=DEBUG
+```
+
+---
+
+## CORS Configuration
+
+```java
+// security/WebSecurityConfig.java
+@Configuration
+@EnableWebSecurity
+public class WebSecurityConfig {
+
+    @Bean
+    public SecurityFilterChain apiFilterChain(HttpSecurity http) throws Exception {
+        http.cors(cors -> cors.configurationSource(apiConfigurationSource()));
+        return http.build();
+    }
+
+    private CorsConfigurationSource apiConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+        configuration.setAllowedOrigins(List.of("http://localhost:4444", "http://localhost:3000"));
+        configuration.setAllowedMethods(List.of("OPTIONS", "GET", "POST", "PUT", "DELETE"));
+        configuration.setAllowedHeaders(List.of("*"));
+        
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
+    }
+}
+```
+
+---
+
+## Common Mistakes to Avoid
+
+| ❌ Don't | ✅ Do |
+|----------|------|
+| Use field injection | Use constructor injection |
+| Hardcode configuration | Use properties files |
+| Forget profile annotations | Use `@Profile` or `@ConditionalOnProperty` |
+| Mix profiles incorrectly | Use format: database,repository |
+| Enable security without roles | Define roles in `Roles.java` |
